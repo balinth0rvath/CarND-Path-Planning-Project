@@ -50,15 +50,16 @@ int main() {
     map_waypoints_dx.push_back(d_x);
     map_waypoints_dy.push_back(d_y);
   }
-  h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
+
+	int lane = 1;
+	double ref_vel = 0.0;
+  h.onMessage([&ref_vel, &lane, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
                &map_waypoints_dx,&map_waypoints_dy]
               (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
-		int lane = 1;
-		double ref_vel = 48.5;
     if (length && length > 2 && data[0] == '4' && data[1] == '2') {
 
       auto s = hasData(data);
@@ -99,7 +100,36 @@ int main() {
            * TODO: define a path made up of (x,y) points that the car will visit
            *   sequentially every .02 seconds
            */
-			
+		
+					bool too_close = false;
+
+					for(int i=0; i<sensor_fusion.size(); i++)
+					{
+						float d = sensor_fusion[i][6];
+						if(d<(2+4*lane+2) && d>(2+4*lane-2))
+						{
+							double vx = sensor_fusion[i][3];
+							double vy = sensor_fusion[i][4];
+							double check_speed = sqrt(vx*vx+vy*vy);
+							double check_car_s = sensor_fusion[i][5];
+
+							check_car_s += ((double)prev_size*0.02*check_speed);
+							if ((check_car_s > car_s) && ((check_car_s-car_s) < 70))
+							{
+								too_close = true;
+							}
+						}	
+					}
+
+					if(too_close)
+					{
+						ref_vel -= .224;
+					}
+					else if(ref_vel < 49.5)
+					{
+						ref_vel += .224;
+					}
+	
 					vector<double> ptsx;
 					vector<double> ptsy;
 
@@ -117,11 +147,6 @@ int main() {
 
 						ptsy.push_back(prev_car_y);
 						ptsy.push_back(car_y);
-std::cout << "first ------" << std::endl;
-						for(int i=0; i< ptsx.size(); ++i)
-						{
-							std::cout << ptsx[i] << " " << ptsy[i] << std::endl;
-						}
 					} else
 					{
 						ref_x = previous_path_x[prev_size-1];
@@ -136,11 +161,6 @@ std::cout << "first ------" << std::endl;
 
 						ptsy.push_back(ref_y_prev);
 						ptsy.push_back(ref_y);
-std::cout << "2 ------" << std::endl;
-						for(int i=0; i< ptsx.size(); ++i)
-						{
-							std::cout << ptsx[i] << " " << ptsy[i] << std::endl;
-						}
 					}
 
 					vector<double> next_wp0 = getXY(car_s+30,(2+4*lane),map_waypoints_s,
@@ -157,11 +177,6 @@ std::cout << "2 ------" << std::endl;
 					ptsy.push_back(next_wp0[1]);
 					ptsy.push_back(next_wp1[1]);
 					ptsy.push_back(next_wp2[1]);
-std::cout << "3 ------" << std::endl;
-						for(int i=0; i< ptsx.size(); ++i)
-						{
-							std::cout << ptsx[i] << " " << ptsy[i] << std::endl;
-						}
 
 					for(int i=0; i< ptsx.size(); i++)
 					{
@@ -173,15 +188,8 @@ std::cout << "3 ------" << std::endl;
 					}
 
 					tk::spline s;
-std::cout << "onei ................." << std::endl;
-std::cout << "4 ------" << std::endl;
-						for(int i=0; i< ptsx.size(); ++i)
-						{
-							std::cout << ptsx[i] << " " << ptsy[i] << std::endl;
-						}
 
 					s.set_points(ptsx, ptsy);
-std::cout << "two" << std::endl;
 
           vector<double> next_x_vals;
           vector<double> next_y_vals;
