@@ -1,4 +1,5 @@
 #include "controller.h"
+#include <iostream>
 
 Controller::Controller()
 {
@@ -23,6 +24,9 @@ int Controller::getLane()
 void Controller::next(nlohmann::json j, int prev_size)
 {
 	bool too_close=false;
+	bool emergency_brake=false;
+	bool free=true;
+	double target_speed = 48.5;
 	// Main car's localization Data
 	double car_x = j[1]["x"];
 	double car_y = j[1]["y"];
@@ -42,35 +46,71 @@ void Controller::next(nlohmann::json j, int prev_size)
 	//   of the road.
 	auto sensor_fusion = j[1]["sensor_fusion"];
 
+	cost = {0.0,0.0,0.0};
 	for(int i=0; i<sensor_fusion.size(); i++)
 	{
 		float d = sensor_fusion[i][6];
-		if(d<(2+4*lane+2) && d>(2+4*lane-2))
+		int car_lane = 0;
+		if (d>0.0)
 		{
+			if (d<2.0)
+			{
+				car_lane = 0;
+			} else
+			{
+				car_lane = (int)round(((d-2.0)/4.0));
+			}
+
 			double vx = sensor_fusion[i][3];
 			double vy = sensor_fusion[i][4];
-			double check_speed = sqrt(vx*vx+vy*vy);
+			double check_speed = 2.2 * sqrt(vx*vx+vy*vy);
 			double check_car_s = sensor_fusion[i][5];
-
 			check_car_s += ((double)prev_size*0.02*check_speed);
-			if ((check_car_s > car_s) && ((check_car_s-car_s) < 40))
-			{
-				too_close = true;
-				if (lane > 0)
+			
+			if ((car_lane == lane) && (check_car_s > car_s))
+			{ 
+				double distance  = check_car_s - car_s;
+				std::cout << "---distance from it: " << distance << std::endl;
+
+				if (distance < 100.0)
 				{
-					lane = 0;
+					free = false;
 				}
+
+				if (distance < 30.0)
+				{
+					emergency_brake = true;
+				} else if (distance < 60.0)
+				{
+					too_close = true;
+					target_speed = check_speed;
+				} 
 			}
-		}	
+		}
 	}
 
-	if(too_close)
+	if(too_close && (target_speed < velocity))
 	{
-		velocity -= 1.;
+		std::cout << "too close" << std::endl;
+		velocity -= 0.4;
 	}
-	else if(velocity < 48.8)
+
+	if (emergency_brake)
 	{
-		velocity += 1.;
+			std::cout << "BRAKE" << std::endl;
+			velocity -= 2.0;
+	}
+
+	else if(velocity < target_speed)
+	{
+		std::cout << "approach" << std::endl;
+		if (free)
+		{
+			velocity += 1.2;
+		} else
+		{
+			velocity += 0.2;
+		}
 	}
 
 }
