@@ -8,6 +8,7 @@
 #include "helpers.h"
 #include "spline.h"
 #include "json.hpp"
+#include "controller.h"
 
 // for convenience
 using nlohmann::json;
@@ -53,7 +54,10 @@ int main() {
 
 	int lane = 1;
 	double ref_vel = 0.0;
-  h.onMessage([&ref_vel, &lane, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
+
+	Controller controller;
+
+  h.onMessage([&controller, &ref_vel, &lane, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
                &map_waypoints_dx,&map_waypoints_dy]
               (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                uWS::OpCode opCode) {
@@ -88,51 +92,10 @@ int main() {
           double end_path_s = j[1]["end_path_s"];
           double end_path_d = j[1]["end_path_d"];
 
-          // Sensor Fusion Data, a list of all other cars on the same side 
-          //   of the road.
-          auto sensor_fusion = j[1]["sensor_fusion"];
-
 					int prev_size = previous_path_x.size();
           json msgJson;
 
-
-          /**
-           * TODO: define a path made up of (x,y) points that the car will visit
-           *   sequentially every .02 seconds
-           */
-		
-					bool too_close = false;
-
-					for(int i=0; i<sensor_fusion.size(); i++)
-					{
-						float d = sensor_fusion[i][6];
-						if(d<(2+4*lane+2) && d>(2+4*lane-2))
-						{
-							double vx = sensor_fusion[i][3];
-							double vy = sensor_fusion[i][4];
-							double check_speed = sqrt(vx*vx+vy*vy);
-							double check_car_s = sensor_fusion[i][5];
-
-							check_car_s += ((double)prev_size*0.02*check_speed);
-							if ((check_car_s > car_s) && ((check_car_s-car_s) < 40))
-							{
-								too_close = true;
-								if (lane > 0)
-								{
-									lane = 0;
-								}
-							}
-						}	
-					}
-
-					if(too_close)
-					{
-						ref_vel -= .224;
-					}
-					else if(ref_vel < 49.5)
-					{
-						ref_vel += .224;
-					}
+					controller.next(j, prev_size);
 	
 					vector<double> ptsx;
 					vector<double> ptsy;
@@ -167,11 +130,11 @@ int main() {
 						ptsy.push_back(ref_y);
 					}
 
-					vector<double> next_wp0 = getXY(car_s+30,(2+4*lane),map_waypoints_s,
+					vector<double> next_wp0 = getXY(car_s+30,(2+4*controller.getLane()),map_waypoints_s,
 							map_waypoints_x, map_waypoints_y);
-					vector<double> next_wp1 = getXY(car_s+60,(2+4*lane),map_waypoints_s,
+					vector<double> next_wp1 = getXY(car_s+60,(2+4*controller.getLane()),map_waypoints_s,
 							map_waypoints_x, map_waypoints_y);
-					vector<double> next_wp2 = getXY(car_s+90,(2+4*lane),map_waypoints_s,
+					vector<double> next_wp2 = getXY(car_s+90,(2+4*controller.getLane()),map_waypoints_s,
 							map_waypoints_x, map_waypoints_y);
 
 					ptsx.push_back(next_wp0[0]);
@@ -212,7 +175,7 @@ int main() {
 
 					for (int i=1; i<=50-previous_path_x.size(); i++)
 					{
-						double N = (target_dist/(0.02*ref_vel/2.24));
+						double N = (target_dist/(0.02*controller.getVelocity()/2.24));
 						double x_point = x_add_on+(target_x)/N;
 						double y_point = s(x_point);
 	
