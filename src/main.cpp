@@ -130,11 +130,12 @@ int main() {
 						ptsy.push_back(ref_y);
 					}
 
-					vector<double> next_wp0 = getXY(car_s+30,(2+4*controller.getLane()),map_waypoints_s,
+					double traject_mod = controller.getTrajectoryModifier();
+					vector<double> next_wp0 = getXY(car_s+30 * traject_mod,(2+4*controller.getLane()),map_waypoints_s,
 							map_waypoints_x, map_waypoints_y);
-					vector<double> next_wp1 = getXY(car_s+60,(2+4*controller.getLane()),map_waypoints_s,
+					vector<double> next_wp1 = getXY(car_s+60 * traject_mod,(2+4*controller.getLane()),map_waypoints_s,
 							map_waypoints_x, map_waypoints_y);
-					vector<double> next_wp2 = getXY(car_s+90,(2+4*controller.getLane()),map_waypoints_s,
+					vector<double> next_wp2 = getXY(car_s+90 * traject_mod,(2+4*controller.getLane()),map_waypoints_s,
 							map_waypoints_x, map_waypoints_y);
 
 					ptsx.push_back(next_wp0[0]);

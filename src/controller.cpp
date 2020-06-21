@@ -5,6 +5,7 @@ Controller::Controller()
 {
 	velocity = 0.0;
 	lane = 1;
+	tick = 0;
 
 }
 
@@ -22,10 +23,18 @@ int Controller::getLane()
 	return lane;
 }
 
+double Controller::getTrajectoryModifier() 
+{
+	double modifier = 2.0 * velocity / speed_limit;
+	if (modifier < 1.0)
+		modifier = 1.0;
+	return modifier; 
+}
 void Controller::setFrontDistances(nlohmann::json j, int prev_size)
 {
 	double car_s = j[1]["s"];
 	front_distances={INF,INF,INF};
+	collision_warnings={false,false,false};
 	auto sensor_fusion = j[1]["sensor_fusion"];
 	for(int i=0; i<sensor_fusion.size(); i++)
 	{
@@ -45,6 +54,30 @@ void Controller::setFrontDistances(nlohmann::json j, int prev_size)
 				if (j==curr_lane && front_distances[j] > distance && distance > 0.0)
 				{
 					front_distances[j] = distance;
+
+					if (curr_lane == lane && distance < 27.0)
+						target_speed = check_speed;
+				}
+				if (j==curr_lane && j!=lane && distance < 5.0 && distance > -8.0)
+				{
+					//std::cout << "collision " << j << "  distance " << distance <<  std::endl;
+					collision_warnings[j] = true;
+				}
+				double speed_delta = check_speed - velocity;
+				if (j==curr_lane && j!=lane && distance < 0.0 && distance > speed_delta * -3.0 )
+				{
+					//std::cout << "incoming " << j <<" distance " << distance << std::endl;
+					collision_warnings[j] = true;
+				}
+
+				if (j==curr_lane && j!=lane && distance > 0.0 && distance < 30.0 && speed_delta < -15.0)
+				{
+					collision_warnings[j] = true;
+					//std::cout << "PASSING FAST" << j <<" distance " << distance << std::endl;
+				} else if (j==curr_lane && j!=lane && distance > 0.0 && distance < 10.0 && speed_delta < -1.0)
+				{
+					collision_warnings[j] = true;
+					//std::cout << "PASSING slow close" << j <<" distance " << distance << std::endl;
 				}
 			}	
 		}
@@ -55,20 +88,43 @@ void Controller::setCosts()
 {
 	for(int i=0;i<3;++i)
 	{
-		cost[i] = 1 - exp(-1/front_distances[i]);
+		cost[i] = 1.0 - exp(-1/front_distances[i]);
+		if (collision_warnings[i])
+			cost[i] = 1.0;
+		if (cost[i] < 0.0005)
+			cost[i] = 0.0;	
+	}
+/*
+	for(int i=0;i<3;++i)
+	{
+		std::cout << cost[i] << " ";
 	}
 	std::cout << std::endl;
+*/
 	auto smallest = std::min_element(std::begin(cost), std::end(cost));
-	target_lane = std::distance(std::begin(cost), smallest);
-	std::cout << "target: " << lane << std::endl;
+	double tmp = lane;
+	lane = std::distance(std::begin(cost), smallest);
+	if (tmp != lane)
+	{
+		prev_tick =tick;
+		prev_lane = lane;
+	}
+
+	if (fabs(tick - prev_tick > 20))
+		prev_lane = lane;
+
+	std::cout << "target lane: " << lane << "  previous lane: " << prev_lane <<
+	"tick: " << tick << " prev tick: " << prev_tick <<  std::endl;
 }
+
 
 void Controller::next(nlohmann::json j, int prev_size)
 {
+	tick++;
 	bool too_close=false;
 	bool emergency_brake=false;
 	bool free=true;
-	double target_speed = 48.5;
+	target_speed = speed_limit * 0.975;
 	// Main car's localization Data
 	double car_x = j[1]["x"];
 	double car_y = j[1]["y"];
@@ -92,14 +148,15 @@ void Controller::next(nlohmann::json j, int prev_size)
 	setFrontDistances(j,prev_size);
 	setCosts();
 
-	if(velocity < target_speed)
+	if(velocity < target_speed - 1.0)
 	{
 			velocity += 1.0;
 	}
-	if (lane < target_lane)
-		lane++;
 
-	if (lane > target_lane)
-		lane--;
+	if(velocity > target_speed + 1.0)
+	{
+			velocity -= 1.0;
+	}
+
 }
 
