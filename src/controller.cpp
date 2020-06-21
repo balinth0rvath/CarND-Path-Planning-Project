@@ -25,7 +25,7 @@ int Controller::getLane()
 
 double Controller::getTrajectoryModifier() 
 {
-	double modifier = 2.0 * velocity / speed_limit;
+	double modifier = 2.1 * velocity / speed_limit;
 	if (modifier < 1.0)
 		modifier = 1.0;
 	return modifier; 
@@ -44,41 +44,64 @@ void Controller::setFrontDistances(nlohmann::json j, int prev_size)
 		double check_car_s = sensor_fusion[i][5];
 		//check_car_s += ((double)prev_size*0.02*check_speed); 
 		float d = sensor_fusion[i][6];
-		int curr_lane =(d>2.0) ? (int)round(((d-2.0)/4.0)) : 0.0;
+		int check_car_lane =(d>2.0) ? (int)round(((d-2.0)/4.0)) : 0.0;
 		//std::cout << "id: " << sensor_fusion[i][0] << "s: " << check_car_s << " lane: " << curr_lane <<  std::endl;	
 		double distance = check_car_s - car_s;
 		if (d>0.0)
 		{
 			for(int j=0;j<3;++j)
 			{
-				if (j==curr_lane && front_distances[j] > distance && distance > 0.0)
+				if (j==check_car_lane && front_distances[j] > distance && distance > 0.0)
 				{
 					front_distances[j] = distance;
 
-					if (curr_lane == lane && distance < 27.0)
+					if (check_car_lane == lane && distance < 27.0)
 						target_speed = check_speed;
 				}
-				if (j==curr_lane && j!=lane && distance < 5.0 && distance > -8.0)
+				if (j==check_car_lane && j!=lane && distance < 5.0 && distance > -8.0)
 				{
 					//std::cout << "collision " << j << "  distance " << distance <<  std::endl;
 					collision_warnings[j] = true;
 				}
 				double speed_delta = check_speed - velocity;
-				if (j==curr_lane && j!=lane && distance < 0.0 && distance > speed_delta * -3.0 )
+				if (j==check_car_lane && j!=lane && distance < 0.0 && distance > speed_delta * -4.0 )
 				{
 					//std::cout << "incoming " << j <<" distance " << distance << std::endl;
 					collision_warnings[j] = true;
 				}
 
-				if (j==curr_lane && j!=lane && distance > 0.0 && distance < 30.0 && speed_delta < -15.0)
+				if (j==check_car_lane && j!=lane && distance > 0.0 && distance < 30.0 && speed_delta < -15.0)
 				{
 					collision_warnings[j] = true;
 					//std::cout << "PASSING FAST" << j <<" distance " << distance << std::endl;
-				} else if (j==curr_lane && j!=lane && distance > 0.0 && distance < 10.0 && speed_delta < -1.0)
+				} else if (j==check_car_lane && j!=lane && distance > 0.0 && distance < 10.0 && speed_delta < -1.0)
 				{
 					collision_warnings[j] = true;
 					//std::cout << "PASSING slow close" << j <<" distance " << distance << std::endl;
 				}
+				bool avoid_crossing = false;
+				if (lane!=check_car_lane && check_car_lane == 1)
+				{ 
+					if (distance < 19.0 && distance > -6.0 && fabs(speed_delta) > 8.0)	
+					{
+						avoid_crossing = true;
+						std::cout << "AVOID speed CROSSING" << std::endl;
+					}
+					if (distance < 10.0 && distance > -5.0 && fabs(speed_delta) <= 8.0)
+					{
+						avoid_crossing = true;
+						std::cout << "AVOID slow crossing" << std::endl;	
+					}
+				}
+				if (avoid_crossing)
+				{
+					if (lane==0)
+							collision_warnings[2]= true;
+
+					if (lane==2)
+						collision_warnings[0]= true;
+
+				}	
 			}	
 		}
 	}
@@ -91,30 +114,22 @@ void Controller::setCosts()
 		cost[i] = 1.0 - exp(-1/front_distances[i]);
 		if (collision_warnings[i])
 			cost[i] = 1.0;
-		if (cost[i] < 0.0005)
-			cost[i] = 0.0;	
+
+		if (tick<50 && i!=lane)
+		{
+			std::cout << "avoid" << tick << std::endl;
+			cost[i] = 1.0;
+		}	
 	}
-/*
+
 	for(int i=0;i<3;++i)
 	{
 		std::cout << cost[i] << " ";
 	}
 	std::cout << std::endl;
-*/
 	auto smallest = std::min_element(std::begin(cost), std::end(cost));
-	double tmp = lane;
 	lane = std::distance(std::begin(cost), smallest);
-	if (tmp != lane)
-	{
-		prev_tick =tick;
-		prev_lane = lane;
-	}
 
-	if (fabs(tick - prev_tick > 20))
-		prev_lane = lane;
-
-	std::cout << "target lane: " << lane << "  previous lane: " << prev_lane <<
-	"tick: " << tick << " prev tick: " << prev_tick <<  std::endl;
 }
 
 

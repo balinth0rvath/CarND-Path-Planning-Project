@@ -1,11 +1,4 @@
 #include "json.hpp"
-enum class State {
-	kFollow,
-	kChangeLeft,
-	kChangeRight,
-	kPrepareToChangeLeft,
-	kPrepareToChangeRight
-};
 
 class Controller {
 public:
@@ -26,7 +19,6 @@ private:
 	void setTargetSpeed();
 	double velocity;
 	int lane;
-	int state;
 	int prev_lane;
 	double target_speed;
 	std::vector<double> front_distances;
