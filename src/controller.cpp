@@ -82,7 +82,12 @@ void Controller::setFrontDistances(nlohmann::json j, int prev_size)
 				bool avoid_crossing = false;
 				if (lane!=check_car_lane && check_car_lane == 1)
 				{ 
-					if (distance < 20.0 && distance > -6.0 && fabs(speed_delta) > 4.0)	
+					if (distance < 22.0 && distance > -7.0 && fabs(speed_delta) > 8.0)	
+					{
+						avoid_crossing = true;
+						std::cout << "AVOID speed CROSSING" << std::endl;
+					}
+					if (distance < 18.0 && distance > -6.0 && fabs(speed_delta) > 4.0 && fabs(speed_delta) <=8.0)	
 					{
 						avoid_crossing = true;
 						std::cout << "AVOID speed CROSSING" << std::endl;
