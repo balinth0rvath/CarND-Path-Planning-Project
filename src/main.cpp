@@ -10,7 +10,6 @@
 #include "json.hpp"
 #include "controller.h"
 
-// for convenience
 using nlohmann::json;
 using std::string;
 using std::vector;
@@ -145,6 +144,8 @@ int main() {
 					vector<double> next_wp2 = getXY(car_s+90 * traject_mod,(2+4*controller.getLane()),map_waypoints_s,
 							map_waypoints_x, map_waypoints_y);
 
+
+					// store waypoints for spline
 					ptsx.push_back(next_wp0[0]);
 					ptsx.push_back(next_wp1[0]);
 					ptsx.push_back(next_wp2[0]);

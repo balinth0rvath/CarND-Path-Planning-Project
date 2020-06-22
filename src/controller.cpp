@@ -110,17 +110,17 @@ void Controller::setFrontDistances(nlohmann::json j, int prev_size)
 				// before/behind a  car in the middle lane depending on speed delta
 				if (lane!=check_car_lane && check_car_lane == 1)
 				{ 
-					if (distance < 23.0 && distance > -7.0 && fabs(speed_delta) > 8.0)	
+					if (distance < 25.0 && distance > -7.0 && fabs(speed_delta) > 8.0)	
 					{
 						avoid_crossing = true;
 						//std::cout << "AVOID speed CROSSING" << std::endl;
 					}
-					if (distance < 19.0 && distance > -6.0 && fabs(speed_delta) > 4.0 && fabs(speed_delta) <=8.0)	
+					if (distance < 21.0 && distance > -6.0 && fabs(speed_delta) > 4.0 && fabs(speed_delta) <=8.0)	
 					{
 						avoid_crossing = true;
 						//std::cout << "AVOID speed CROSSING" << std::endl;
 					}
-					if (distance < 15.0 && distance > -5.0 && fabs(speed_delta) <= 4.0)
+					if (distance < 17.0 && distance > -5.0 && fabs(speed_delta) <= 4.0)
 					{
 						avoid_crossing = true;
 						//std::cout << "AVOID slow crossing" << std::endl;	
@@ -161,7 +161,6 @@ void Controller::setCosts()
 		// regardless of sensor data	
 		if (tick<50 && i!=lane)
 		{
-			std::cout << "avoid" << tick << std::endl;
 			cost[i] = 1.0;
 		}	
 	}
@@ -181,7 +180,6 @@ void Controller::setCosts()
 void Controller::next(nlohmann::json j, int prev_size)
 {
 	tick++;
-	bool too_close=false;
 
 	// set speed limit close to the legal limit
 	target_speed = speed_limit * 0.975;
@@ -191,7 +189,11 @@ void Controller::next(nlohmann::json j, int prev_size)
 	auto sensor_fusion = j[1]["sensor_fusion"];
 
 	cost = {0.0,0.0,0.0};
+
+	// set front distances of cars in the same direction. Set collision warnings
 	setFrontDistances(j,prev_size);
+
+	// call the cost function. Set the target lane and the target speed
 	setCosts();
 
 	// modify velocity towards the target speed taking account of the max acceleration
@@ -204,6 +206,5 @@ void Controller::next(nlohmann::json j, int prev_size)
 	{
 			velocity -= 1.0;
 	}
-
 }
 
