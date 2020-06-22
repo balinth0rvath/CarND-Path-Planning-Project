@@ -197,14 +197,14 @@ void Controller::next(nlohmann::json j, int prev_size)
 	setCosts();
 
 	// modify velocity towards the target speed taking account of the max acceleration
-	if(velocity < target_speed - 1.0)
+	if(velocity < target_speed - 0.3)
 	{
-			velocity += 1.0;
+			velocity += 0.5;
 	}
 
-	if(velocity > target_speed + 1.0)
+	if(velocity > target_speed + 0.3)
 	{
-			velocity -= 1.0;
+			velocity -= 0.5;
 	}
 }
 
