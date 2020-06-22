@@ -20,6 +20,9 @@ The code compiles correctly.
 ### Valid Trajectories
 
 #### 1. The car is able to drive at least 4.32 miles without incident..
+
+_Note: My test config is GeForce GT730 Intel Core Duo E8200. This weak config hides the acceleration-exceedded problems(max 5m/s2). Previous reviewer experienced acc total 13m/s2, i couldnt reproduce it even on the lowest settings. On lowest settings the max was 10m/s2. Acceleration and brake intensity is decreased, I hope it solves the problem.
+
 I tested 10 times, the car was able to drive 8-42 miles without incident.
 
 #### 2. The car drives according to the speed limit.
