@@ -50,7 +50,7 @@ A cost function is used to select the best lane. (controller.cpp #143) The formu
 cost[lane] = 1 - exp(-1/front_distance[lane])
 where lane is the checked lane, and front_distance is the closest vehichle in front of the ego car in that lane. 
 
-__safety checks__
+__Safety checks__
 * If there is a car in the lane of ego vehicle and all the other lanes have 1.0 cost then the speed must be adjusted to keep safe distance (controller.cpp #64)
 
 There is a collision_warning variable for each lane. If it is true, the cost is set to 1 to that lane. (controller.cpp #157)
