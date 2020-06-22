@@ -41,25 +41,25 @@ The Controller class is used to select best lane for fast and safe driving. The 
 ### Reflection
 
 #### 1. There is a reflection on how to generate paths.
-Spline is used to generate path from anchor points. Anchor points contain previous points, applied lane changes in d dimension in frenet coordinates. 
-The best lane is selected calling Controller.next (See controller.h and controller.cpp) Basically it select a best lane and a target speed for the next iteration checking the sensor fusion data and the current speed and current lane. 
+Spline is used to generate path from anchor points. Anchor points contain previous points, appended to s direction taking account of planned speed and then applied lane changes in d dimension in frenet coordinates. 
+The best lane is selected calling Controller::next (See controller.h and controller.cpp) Basically it select a best lane and a target speed for the next iteration checking the sensor fusion data and the current speed and current lane. 
 There is always a target speed to be accelerated to. This speed can be either the 97.5% of the legal limit or the speed of the vehicle in front of the ego car. 
 
-A cost function is used to select the best lane. The formula is 
+A cost function is used to select the best lane. (controller.cpp #143) The formula is 
 
 cost[lane] = 1 - exp(-1/front_distance[lane])
-lane is the checked lane
-front_distance is the closest vehichle in that lane in front direction
+where lane is the checked lane
+front_distance is the closest vehichle in front of the ego car in that lane 
 
 __safety checks__
-* If there is a car in the lane of ego vehicle and all the other lanes have 1.0 cost then the speed must be adjusted to keep safe distance
+* If there is a car in the lane of ego vehicle and all the other lanes have 1.0 cost then the speed must be adjusted to keep safe distance (controller.cpp #64)
 
-There is a collision_warning variable for each lane. If it is true, the cost is set to 1 to that lane.
+There is a collision_warning variable for each lane. If it is true, the cost is set to 1 to that lane. (controller.cpp #157)
 The variable is set to 1 if:
-* There is a car near the ego vehicle in the target lane
-* There is a car approaching in the target lane and has higher speed than the ego vehicle
-* There is a slower car in front of the ego vehicle in the target lane and has lower speed
-* If the best lane is the second lane from the current one, then extra attention must be paid to vehicles in the center lane
+* There is a car near the ego vehicle in the target lane (controller.cpp #75)
+* There is a car approaching in the target lane and has higher speed than the ego vehicle (controller.cpp #84)
+* There is a slower car in front of the ego vehicle in the target lane and has lower speed (controller.cpp #92-107)
+* If the best lane is the second lane from the current one, then extra attention must be paid to vehicles in the center lane (controller.cpp #106-137)
 
 
 
