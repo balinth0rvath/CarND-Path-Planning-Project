@@ -60,7 +60,9 @@ The variable is set to 1 if:
 * There is a car approaching in the target lane and has higher speed than the ego vehicle (controller.cpp #84)
 * There is a slower car in front of the ego vehicle in the target lane and has lower speed (controller.cpp #92-107)
 * If the best lane is the second lane from the current one, then extra attention must be paid to vehicles in the center lane (controller.cpp #106-137)
+* No lane change allowed until a specific amount of time when starting from standing position (controller.cpp #160)
 
+Velocity is adjusted adding or subtracting 1 mph in each cycle.
 
 
 
