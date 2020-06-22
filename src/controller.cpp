@@ -74,9 +74,9 @@ void Controller::setFrontDistances(nlohmann::json j, int prev_size)
 			
 				// If the checked car is not in our lane and it is too close to the ego car
         // then set the cost of that lane to the upper limit
-				if (j==check_car_lane && j!=lane && distance < 5.0 && distance > -8.0)
+				if (j==check_car_lane && j!=lane && distance < 10.0 && distance > -11.0)
 				{
-					//std::cout << "collision " << j << "  distance " << distance <<  std::endl;
+					std::cout << "collision " << j << "  distance " << distance <<  std::endl;
 					collision_warnings[j] = true;
 				}
 				double speed_delta = check_speed - velocity;
@@ -85,7 +85,7 @@ void Controller::setFrontDistances(nlohmann::json j, int prev_size)
 				// much higher speed the avoid that lane
 				if (j==check_car_lane && j!=lane && distance < 0.0 && distance > speed_delta * -4.0 )
 				{
-					//std::cout << "incoming " << j <<" distance " << distance << std::endl;
+					std::cout << "incoming " << j <<" distance " << distance << std::endl;
 					collision_warnings[j] = true;
 				}
 
@@ -94,14 +94,14 @@ void Controller::setFrontDistances(nlohmann::json j, int prev_size)
 				if (j==check_car_lane && j!=lane && distance > 0.0 && distance < 31.0 && speed_delta < -14.0)
 				{
 					collision_warnings[j] = true;
-					//std::cout << "PASSING FAST" << j <<" distance " << distance << std::endl;
+					std::cout << "PASSING FAST" << j <<" distance " << distance << std::endl;
 
 					// If the checked car is not in our lane and it is a bit slower then avoid than lane
 					// from a shorter distance
 				} else if (j==check_car_lane && j!=lane && distance > 0.0 && distance < 15.0 && speed_delta < -1.0)
 				{
 					collision_warnings[j] = true;
-					//std::cout << "PASSING slow close" << j <<" distance " << distance << std::endl;
+					std::cout << "PASSING slow close" << j <<" distance " << distance << std::endl;
 				}
 				bool avoid_crossing = false;
 
@@ -110,20 +110,20 @@ void Controller::setFrontDistances(nlohmann::json j, int prev_size)
 				// before/behind a  car in the middle lane depending on speed delta
 				if (lane!=check_car_lane && check_car_lane == 1)
 				{ 
-					if (distance < 27.0 && distance > -7.0 && fabs(speed_delta) > 8.0)	
+					if (distance < 28.0 && distance > -11.0 && fabs(speed_delta) > 8.0)	
 					{
 						avoid_crossing = true;
-						//std::cout << "AVOID speed CROSSING" << std::endl;
+						std::cout << "AVOID speed CROSSING" << std::endl;
 					}
-					if (distance < 23.0 && distance > -6.0 && fabs(speed_delta) > 4.0 && fabs(speed_delta) <=8.0)	
+					if (distance < 24.0 && distance > -10.0 && fabs(speed_delta) > 4.0 && fabs(speed_delta) <=8.0)	
 					{
 						avoid_crossing = true;
-						//std::cout << "AVOID speed CROSSING" << std::endl;
+						std::cout << "AVOID speed CROSSING" << std::endl;
 					}
-					if (distance < 19.0 && distance > -5.0 && fabs(speed_delta) <= 4.0)
+					if (distance < 20.0 && distance > -9.0 && fabs(speed_delta) <= 4.0)
 					{
 						avoid_crossing = true;
-						//std::cout << "AVOID slow crossing" << std::endl;	
+						std::cout << "AVOID slow crossing" << std::endl;	
 					}
 				}
 				if (avoid_crossing)
@@ -180,7 +180,7 @@ void Controller::setCosts()
 void Controller::next(nlohmann::json j, int prev_size)
 {
 	tick++;
-
+	std::cout << std::endl;
 	// set speed limit close to the legal limit
 	target_speed = speed_limit * 0.975;
 
