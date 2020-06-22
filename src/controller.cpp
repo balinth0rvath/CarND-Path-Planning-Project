@@ -25,6 +25,7 @@ int Controller::getLane()
 
 double Controller::getTrajectoryModifier() 
 {
+	// Set smoother path for high speed
 	double modifier = 2.1 * velocity / speed_limit;
 	if (modifier < 1.0)
 		modifier = 1.0;
@@ -36,66 +37,93 @@ void Controller::setFrontDistances(nlohmann::json j, int prev_size)
 	front_distances={INF,INF,INF};
 	collision_warnings={false,false,false};
 	auto sensor_fusion = j[1]["sensor_fusion"];
+
+	// this loop does two things:
+	// 1.  calculates the nearest cars in front of the ego car in each lane
+	// 2.	 calculates warnings used in cost function
+
+  // iterate over all cars in sensor range
 	for(int i=0; i<sensor_fusion.size(); i++)
 	{
+    // calcuate speed s and d
 		double vx = sensor_fusion[i][3];
 		double vy = sensor_fusion[i][4];
 		double check_speed = 2.2 * sqrt(vx*vx+vy*vy);
 		double check_car_s = sensor_fusion[i][5];
-		//check_car_s += ((double)prev_size*0.02*check_speed); 
 		float d = sensor_fusion[i][6];
 		int check_car_lane =(d>2.0) ? (int)round(((d-2.0)/4.0)) : 0.0;
-		//std::cout << "id: " << sensor_fusion[i][0] << "s: " << check_car_s << " lane: " << curr_lane <<  std::endl;	
 		double distance = check_car_s - car_s;
+		// skip opposite lanes
 		if (d>0.0)
 		{
+			// j is the target lane for calculating cost 
 			for(int j=0;j<3;++j)
 			{
 				if (j==check_car_lane && front_distances[j] > distance && distance > 0.0)
 				{
+					// If the checked is closer than the stored one and it is in front of the ego car,  then replace that with this one
 					front_distances[j] = distance;
 
-					if (check_car_lane == lane && distance < 27.0)
+					// If the checked car is in our lane and it is too close then match speed
+					if (check_car_lane == lane && distance < 29.0)
 						target_speed = check_speed;
 				}
+				// **
+				// * SAFETY CHECKS. Cost function later forbids with 1.0 cost any of events calculated here
+				// **
+			
+				// If the checked car is not in our lane and it is too close to the ego car
+        // then set the cost of that lane to the upper limit
 				if (j==check_car_lane && j!=lane && distance < 5.0 && distance > -8.0)
 				{
 					//std::cout << "collision " << j << "  distance " << distance <<  std::endl;
 					collision_warnings[j] = true;
 				}
 				double speed_delta = check_speed - velocity;
+
+				// If the checked car is not in our lane and it is behind us and approaches with
+				// much higher speed the avoid that lane
 				if (j==check_car_lane && j!=lane && distance < 0.0 && distance > speed_delta * -4.0 )
 				{
 					//std::cout << "incoming " << j <<" distance " << distance << std::endl;
 					collision_warnings[j] = true;
 				}
 
+				// If the checked car is not in our lane and it is much slower then avoid that lane
+				// even it is far from ego vehicle
 				if (j==check_car_lane && j!=lane && distance > 0.0 && distance < 30.0 && speed_delta < -15.0)
 				{
 					collision_warnings[j] = true;
 					//std::cout << "PASSING FAST" << j <<" distance " << distance << std::endl;
+
+					// If the checked car is not in our lane and it is a bit slower then avoid than lane
+					// from a shorter distance
 				} else if (j==check_car_lane && j!=lane && distance > 0.0 && distance < 10.0 && speed_delta < -1.0)
 				{
 					collision_warnings[j] = true;
 					//std::cout << "PASSING slow close" << j <<" distance " << distance << std::endl;
 				}
 				bool avoid_crossing = false;
+
+	
+				// Changing two lanes at once is dangerous. This logic prohibits double lane crossing
+				// before/behind a  car in the middle lane depending on speed delta
 				if (lane!=check_car_lane && check_car_lane == 1)
 				{ 
-					if (distance < 22.0 && distance > -7.0 && fabs(speed_delta) > 8.0)	
+					if (distance < 23.0 && distance > -7.0 && fabs(speed_delta) > 8.0)	
 					{
 						avoid_crossing = true;
-						std::cout << "AVOID speed CROSSING" << std::endl;
+						//std::cout << "AVOID speed CROSSING" << std::endl;
 					}
-					if (distance < 18.0 && distance > -6.0 && fabs(speed_delta) > 4.0 && fabs(speed_delta) <=8.0)	
+					if (distance < 19.0 && distance > -6.0 && fabs(speed_delta) > 4.0 && fabs(speed_delta) <=8.0)	
 					{
 						avoid_crossing = true;
-						std::cout << "AVOID speed CROSSING" << std::endl;
+						//std::cout << "AVOID speed CROSSING" << std::endl;
 					}
-					if (distance < 13.0 && distance > -5.0 && fabs(speed_delta) <= 4.0)
+					if (distance < 15.0 && distance > -5.0 && fabs(speed_delta) <= 4.0)
 					{
 						avoid_crossing = true;
-						std::cout << "AVOID slow crossing" << std::endl;	
+						//std::cout << "AVOID slow crossing" << std::endl;	
 					}
 				}
 				if (avoid_crossing)
@@ -114,6 +142,10 @@ void Controller::setFrontDistances(nlohmann::json j, int prev_size)
 
 void Controller::setCosts()
 {
+	// calculate cost for each lane using exponential function
+  // longer distances for each lanes are rewarded. Cost is 
+  // skipped at 0.01 to avoid unnecessary lane changes generated
+  // of 200m+ traffic changes
 	for(int i=0;i<3;++i)
 	{
 		cost[i] = 1.0 - exp(-1/front_distances[i]);
@@ -121,9 +153,12 @@ void Controller::setCosts()
 		if (cost[i]<0.01)
 			cost[i]=0.01;
 
+		// forbid all changes that are dangerous according to safety checks up there
 		if (collision_warnings[i])
 			cost[i] = 1.0;
 
+		// For a short time, prohibit all lane changes on a highway when starting from standing position
+		// regardless of sensor data	
 		if (tick<50 && i!=lane)
 		{
 			std::cout << "avoid" << tick << std::endl;
@@ -131,13 +166,14 @@ void Controller::setCosts()
 		}	
 	}
 
-	for(int i=0;i<3;++i)
-	{
-		std::cout << cost[i] << " ";
-	}
-	std::cout << std::endl;
+	// Get the best cost lane
 	auto smallest = std::min_element(std::begin(cost), std::end(cost));
-	lane = std::distance(std::begin(cost), smallest);
+	double best_lane = std::distance(std::begin(cost), smallest);
+
+	// If the best one is the same to the current one then dont change lane. It could cause
+	// unnecessray changes leading to break the 3 sec out-of-lane rule.	
+	if (cost[best_lane]<cost[lane])
+		lane = best_lane;
 
 }
 
@@ -146,23 +182,9 @@ void Controller::next(nlohmann::json j, int prev_size)
 {
 	tick++;
 	bool too_close=false;
-	bool emergency_brake=false;
-	bool free=true;
-	target_speed = speed_limit * 0.975;
-	// Main car's localization Data
-	double car_x = j[1]["x"];
-	double car_y = j[1]["y"];
-	double car_s = j[1]["s"];
-	double car_d = j[1]["d"];
-	double car_yaw = j[1]["yaw"];
-	double car_speed = j[1]["speed"];
 
-	// Previous path data given to the Planner
-	auto previous_path_x = j[1]["previous_path_x"];
-	auto previous_path_y = j[1]["previous_path_y"];
-	// Previous path's end s and d values 
-	double end_path_s = j[1]["end_path_s"];
-	double end_path_d = j[1]["end_path_d"];
+	// set speed limit close to the legal limit
+	target_speed = speed_limit * 0.975;
 
 	// Sensor Fusion Data, a list of all other cars on the same side 
 	//   of the road.
@@ -172,6 +194,7 @@ void Controller::next(nlohmann::json j, int prev_size)
 	setFrontDistances(j,prev_size);
 	setCosts();
 
+	// modify velocity towards the target speed taking account of the max acceleration
 	if(velocity < target_speed - 1.0)
 	{
 			velocity += 1.0;

@@ -95,6 +95,8 @@ int main() {
 					int prev_size = previous_path_x.size();
           json msgJson;
 
+					// This class determines the next lane for trajectory calculation
+					// Also, it calculates the speed
 					controller.next(j, prev_size);
 	
 					vector<double> ptsx;
@@ -103,7 +105,11 @@ int main() {
 					double ref_x = car_x;
 					double ref_y = car_y;
 					double ref_yaw = deg2rad(car_yaw);
-		
+	
+					// Trajectory calculation includes at least two points from
+					// the previous trajectory to avoid jerk
+					// If there are less, than 2 points are in the previous trajectory
+					// then it calculates the the starting angle from car yaw	
 					if (prev_size < 2)
 					{
 						double prev_car_x = car_x - cos(car_yaw);
@@ -129,8 +135,9 @@ int main() {
 						ptsy.push_back(ref_y_prev);
 						ptsy.push_back(ref_y);
 					}
-
+					// Set smoother trajectory for higher speed to avoid too much acceleration 
 					double traject_mod = controller.getTrajectoryModifier();
+					// Append waypoints to the anchor points. New lane and speed are applied here
 					vector<double> next_wp0 = getXY(car_s+30 * traject_mod,(2+4*controller.getLane()),map_waypoints_s,
 							map_waypoints_x, map_waypoints_y);
 					vector<double> next_wp1 = getXY(car_s+60 * traject_mod,(2+4*controller.getLane()),map_waypoints_s,
@@ -146,6 +153,8 @@ int main() {
 					ptsy.push_back(next_wp1[1]);
 					ptsy.push_back(next_wp2[1]);
 
+					// rotate reference angle to zero degree to avoid more y coordinates
+					// for one x coordinate.
 					for(int i=0; i< ptsx.size(); i++)
 					{
 						double shift_x = ptsx[i] - ref_x;
@@ -157,23 +166,27 @@ int main() {
 
 					tk::spline s;
 
+					// set anchor points of trajectory 
 					s.set_points(ptsx, ptsy);
 
           vector<double> next_x_vals;
           vector<double> next_y_vals;
 
+					// start the trajectory with the remaining points of the previous trajectory
 					for(int i=0; i<previous_path_x.size(); i++)
 					{
 						next_x_vals.push_back(previous_path_x[i]);
 						next_y_vals.push_back(previous_path_y[i]);
 					}
 
+					// Calculate how to break up spline points so that we travel at our desired reference velocity
 					double target_x = 30.0;
 					double target_y = s(target_x);
 					double target_dist = sqrt((target_x)*(target_x)+(target_y)*(target_y));
 
 					double x_add_on = 0;
 
+					// Fill up the rest of trajectory with the newly calculated points
 					for (int i=1; i<=50-previous_path_x.size(); i++)
 					{
 						double N = (target_dist/(0.02*controller.getVelocity()/2.24));
